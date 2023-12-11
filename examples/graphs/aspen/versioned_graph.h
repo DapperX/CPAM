@@ -30,6 +30,7 @@ struct versioned_graph {
 
   ts current_timestamp;
 
+  using graph_t = snapshot_graph;
   using Tree = typename snapshot_graph::vertex_tree::Tree;
   using Node = typename snapshot_graph::vertex_node;
   using Node_GC = typename snapshot_graph::vertex_gc;
