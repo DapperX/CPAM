@@ -6,6 +6,7 @@
 #include "sequentialHT.h"
 
 #include <limits>
+#include <optional>
 
 namespace aspen {
 
@@ -102,32 +103,43 @@ struct versioned_graph {
   }
 
   // Lock-free, but not wait-free
-  version acquire_version() {
-    while (true) {
-      size_t latest_ts = latest_timestamp();
-//      std::cout << "looking up with ts = " << latest_ts << std::endl;
-      tuple<T&, bool> ref_and_valid = live_versions.find(latest_ts);
-      T& table_ref = std::get<0>(ref_and_valid); bool valid = std::get<1>(ref_and_valid);
-      if (valid) {
-        while(true) {
-          // can't be max_ts in a probe sequence
-          if (std::get<0>(table_ref) == tombstone) break;
-          uint64_t refct_and_ts = std::get<0>(std::get<1>(table_ref));
-          uint64_t next_value = refct_and_ts + 1;
-          size_t ref_ct_before = refct_utils::get_rfct(refct_and_ts);
-          size_t ts = std::get<0>(table_ref);
-          if (ref_ct_before > 0) {
-            if (cpam::utils::atomic_compare_and_swap(&std::get<0>(std::get<1>(table_ref)), refct_and_ts, next_value)) {
-              auto graph = snapshot_graph(std::get<1>(std::get<1>(table_ref)));
-//              std::cout << "Success in CAS! graph = " << graph.get_root() << " ref_cnt = " << graph.ref_cnt() << std::endl;
-              return version(ts, &table_ref, std::move(graph));
-            }
-          } else { // refct == 0
-            break;
-          }
-        }
+  std::optional<version> acquire_version_impl(ts timestamp) {
+    // std::cout << "looking up with ts = " << timestamp << std::endl;
+    tuple<T&, bool> ref_and_valid = live_versions.find(timestamp);
+    T& table_ref = std::get<0>(ref_and_valid); bool valid = std::get<1>(ref_and_valid);
+    if (!valid) return std::nullopt;
+
+    while(true) {
+      // can't be max_ts in a probe sequence
+      if (std::get<0>(table_ref) == tombstone) break;
+
+      uint64_t refct_and_ts = std::get<0>(std::get<1>(table_ref));
+      uint64_t next_value = refct_and_ts + 1;
+      size_t ref_ct_before = refct_utils::get_rfct(refct_and_ts);
+      size_t ts = std::get<0>(table_ref);
+      if (ref_ct_before == 0) break;
+
+      if (cpam::utils::atomic_compare_and_swap(&std::get<0>(std::get<1>(table_ref)), refct_and_ts, next_value)) {
+        auto graph = snapshot_graph(std::get<1>(std::get<1>(table_ref)));
+        // std::cout << "Success in CAS! graph = " << graph.get_root() << " ref_cnt = " << graph.ref_cnt() << std::endl;
+        return version(ts, &table_ref, std::move(graph));
       }
     }
+    return std::nullopt;
+  }
+
+  version acquire_version() {
+    std::optional<version> res;
+    while (!res) {
+      res = acquire_version_impl(latest_timestamp());
+    }
+    return *res;
+  }
+
+  version acquire_version(ts timestamp) {
+    // assume the snapshot at the given timestamp is always valid
+    // otherwise an exception would be thrown
+    return acquire_version_impl(timestamp).value();
   }
 
   void release_version(version&& S) {
