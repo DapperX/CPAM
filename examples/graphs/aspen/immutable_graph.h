@@ -1,11 +1,15 @@
 #pragma once
 
 #include "build.h"
+#include <tuple>
+#include <functional>
 
 namespace aspen {
 
-template <class weight>
+template <class weight, typename vattr=empty>
 struct symmetric_graph {
+  using ext_t = vattr;
+
   struct edge_entry {
     using key_t = vertex_id;  // a vertex_id
     using val_t = weight;     // placeholder
@@ -27,9 +31,27 @@ struct symmetric_graph {
 #endif
   using edge_node = typename edge_tree::node;
 
+  struct vinfo : std::tuple<edge_node*,vattr>{
+    // TODO: flatten the members here and use [[no_unique_address]] in C++20
+    using _base = std::tuple<edge_node*,vattr>;
+    using _base::_base;
+    using _base::operator=;
+    vinfo(edge_node *edges) : _base(edges,vattr{}){
+    }
+    operator edge_node*() const{
+      return std::get<0>(base());
+    }
+    _base& base(){
+      return *this;
+    }
+    const _base& base() const{
+      return *this;
+    }
+  };
+
   struct vertex_entry {
     using key_t = vertex_id;
-    using val_t = edge_node*;
+    using val_t = vinfo;
     using aug_t = std::pair<vertex_id, edge_id>;
     static inline bool comp(key_t a, key_t b) { return a < b; }
     static aug_t get_empty() { return std::make_pair(0, 0); }
@@ -153,7 +175,7 @@ struct symmetric_graph {
 
   struct vertex {
     vertex_id id;
-    edge_node* edges;
+    vinfo edges;
     size_t out_degree() {
       return edge_tree::size(edges);
     }
@@ -167,7 +189,7 @@ struct symmetric_graph {
     }
     auto out_neighbors() const { return neighbors(id, edges); }
     auto in_neighbors() const { return neighbors(id, edges); }
-    vertex(vertex_id id, edge_node* edges) : id(id), edges(edges) {}
+    vertex(vertex_id id, const vinfo &edges) : id(id), edges(edges) {}
     vertex() : id(std::numeric_limits<vertex_id>::max()), edges(nullptr) {}
   };
 
@@ -350,15 +372,20 @@ struct symmetric_graph {
     }
   }
 
-  void insert_vertex_inplace(vertex_id id, edge_tree* e) {
+  void insert_vertex_inplace(vertex_id id, const vinfo &e) {
     auto et = typename vertex_entry::entry_t(id, e);
-    V.insert(et);
+    V.insert(std::move(et));
+  }
+
+  void insert_vertex_inplace(vertex_id id, vinfo &&e) {
+    auto et = typename vertex_entry::entry_t(id, std::move(e));
+    V.insert(std::move(et));
   }
 
   // m : number of edges
   // edges: pairs of edges to insert. Currently working with undirected graphs;
-  template <class VtxEntry>
-  void insert_vertices_batch(size_t m, VtxEntry* E) {
+  template <class VtxEntry, class F>
+  void insert_vertices_batch(size_t m, VtxEntry* E, F comb) {
     timer pt("Insert", false);
     timer t("Insert", false);
     auto E_slice = parlay::make_slice(E, E + m);
@@ -366,13 +393,17 @@ struct symmetric_graph {
       return std::get<0>(l) < std::get<0>(r);
     };
     parlay::sort_inplace(E_slice, key_less);
+    V = vertex_tree::multi_insert_sorted(std::move(V), E_slice, comb);
+  }
 
+  template <class VtxEntry>
+  void insert_vertices_batch(size_t m, VtxEntry* E) {
     auto combine_op = [&] (edge_node* cur, edge_node* inc) {
       edge_tree t;
       t.root = cur;  // Lets the ref-cnt get decremented here.
       return inc;
     };
-    V = vertex_tree::multi_insert_sorted(std::move(V), E_slice, combine_op);
+    insert_vertices_batch(m, E, combine_op);
   }
 
   template <class VtxEntry>
