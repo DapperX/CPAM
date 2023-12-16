@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 #include "utils.h"
 #include "parlay/primitives.h"
 #include "parlay/internal/binary_search.h"
@@ -73,7 +74,7 @@ struct map_ops : Seq {
     return ret;
   }
 
-  static std::optional<ET> find2(node* b, const K& key) {
+  static std::optional<std::reference_wrapper<const ET>> find2(node* b, const K& key) {
     if (!b) return {};
     //if (Seq::is_compressed(b)) return find_compressed2(b, key);
     auto f = [&] (const ET& et) { return Entry::get_key(et); };

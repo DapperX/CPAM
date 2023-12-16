@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 #include "basic_node.h"
 
 // *******************************************
@@ -191,10 +192,11 @@ struct aug_node : public basic_node<balance,
   }
 
   template <class F, class Comp, class K>
-  static std::optional<ET> find_compressed(node* b, const F& f, const Comp& comp, const K& k) {
+  static std::optional<std::reference_wrapper<const ET>>
+  find_compressed(node* b, const F& f, const Comp& comp, const K& k) {
     auto c = cast_to_compressed(b);
     uint8_t* data_start = ((uint8_t*)c) + sizeof(aug_compressed_node);
-    return AugEntryEncoder::find(data_start, c->s, f, comp, k);
+    return AugEntryEncoder::find_cref(data_start, c->s, f, comp, k);
   }
 
   static node* finalize(node* root) {

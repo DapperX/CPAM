@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 
 using namespace std;
 
@@ -22,7 +23,9 @@ public:
   using GC = typename Tree::GC;
   using Build = build<Entry>;
   using maybe_V = std::optional<V>;
+  using maybe_refV = std::optional<std::reference_wrapper<const V>>;
   using maybe_E = std::optional<E>;
+  using maybe_refE = std::optional<std::reference_wrapper<const E>>;
   using ptr = typename GC::ptr;
 
   static constexpr size_t B = Join_Tree::B;
@@ -471,9 +474,9 @@ public:
   }
 
   // basic search routines
-  maybe_V find(const K& key) const {
+  maybe_refV find(const K& key) const {
     //return maybe_entry_to_val(Tree::find(ptr(root, true), key));}
-    return maybe_entry_to_val(Tree::find2(root, key));}
+    return maybe_refentry_to_refval(Tree::find2(root, key));}
 
   // returns default value if not found
   V find(const K& key, V defaultv) const {
@@ -658,6 +661,10 @@ public:
     maybe_V value;
     if (e.has_value()) return maybe_V(Entry::get_val(*e));
     else return value;
+  }
+  maybe_refV maybe_refentry_to_refval(maybe_refE e) const {
+    if (e.has_value()) return maybe_refV(Entry::get_val(*e));
+    else return maybe_refV();
   }
 
   // TODO: remove?

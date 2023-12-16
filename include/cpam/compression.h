@@ -251,15 +251,21 @@ struct default_entry_encoder {
     // TODO: this find code should not be located here, but in map_ops?
     // F: ET -> K
     template <class F, class Comp, class K>
-    static inline std::optional<ET> find(uint8_t* bytes, size_t size,
+    static inline std::optional<std::reference_wrapper<const ET>> find_cref(uint8_t* bytes, size_t size,
           const F& f, const Comp& comp, const K& k) {
       ET* ets = (ET*)bytes;
       auto seq = parlay::delayed_seq<K>(size, [&] (size_t i) { return f(ets[i]); });
       size_t ind = parlay::internal::binary_search(seq, k, comp);
       if ((ind < size) && !(comp(seq[ind], k) || comp(k, seq[ind]))) {
-        return std::optional<ET>(ets[ind]);
+        return std::cref(ets[ind]);
       }
       return std::nullopt;
+    }
+
+    template <class F, class Comp, class K>
+    static inline std::optional<ET> find(uint8_t* bytes, size_t size,
+          const F& f, const Comp& comp, const K& k) {
+      return find_cref(bytes, size, f, comp, k);
     }
 
     static inline void destroy(uint8_t* bytes, size_t size) {
