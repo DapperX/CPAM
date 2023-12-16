@@ -33,19 +33,29 @@ struct symmetric_graph {
 
   struct vinfo : std::tuple<edge_node*,vattr>{
     // TODO: flatten the members here and use [[no_unique_address]] in C++20
+    // TODO: add 'mutable' specifier for vattr after flattening
     using _base = std::tuple<edge_node*,vattr>;
     using _base::_base;
     using _base::operator=;
     vinfo(edge_node *edges) : _base(edges,vattr{}){
     }
     operator edge_node*() const{
-      return std::get<0>(base());
+      return get_edges();
     }
     _base& base(){
       return *this;
     }
     const _base& base() const{
       return *this;
+    }
+    edge_node* get_edges() const{
+      return std::get<0>(base());
+    }
+    vattr& get_attr(){
+      return std::get<1>(base());
+    }
+    const vattr& get_attr() const{
+      return std::get<1>(base());
     }
   };
 
@@ -177,7 +187,8 @@ struct symmetric_graph {
 
   struct vertex {
     vertex_id id;
-    vinfo edges;
+    edge_node *edges;
+    vattr *attr;
     size_t out_degree() {
       return edge_tree::size(edges);
     }
@@ -191,8 +202,11 @@ struct symmetric_graph {
     }
     auto out_neighbors() const { return neighbors(id, edges); }
     auto in_neighbors() const { return neighbors(id, edges); }
-    vertex(vertex_id id, const vinfo &edges) : id(id), edges(edges) {}
-    vertex() : id(std::numeric_limits<vertex_id>::max()), edges(nullptr) {}
+    vertex(vertex_id id, const vinfo &val) : 
+      id(id), edges(val.get_edges()), attr(const_cast<vattr*>(&val.get_attr()))
+    {}
+    vertex(vertex_id id, edge_node *edges) : id(id), edges(edges), attr(nullptr) {}
+    vertex() : id(std::numeric_limits<vertex_id>::max()), edges(nullptr), attr(nullptr) {}
   };
 
   using maybe_vertex = std::optional<vertex>;
