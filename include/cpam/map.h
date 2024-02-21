@@ -715,7 +715,7 @@ struct map_full_entry : entry {
   using key_t = typename entry::key_t;
   using entry_t = std::tuple<key_t, val_t>;
   static inline key_t get_key(const entry_t& e) { return std::get<0>(e); }
-  static inline val_t get_val(const entry_t& e) { return std::get<1>(e); }
+  static inline const val_t& get_val(const entry_t& e) { return std::get<1>(e); }
   static inline void set_val(entry_t& e, const val_t& v) { std::get<1>(e) = v; }
   static inline entry_t to_entry(const key_t& k, const val_t& v) {
     return std::make_tuple(k, v);

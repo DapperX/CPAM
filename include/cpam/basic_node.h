@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 #include "parlay/alloc.h"
 
 #include "utils.h"
@@ -146,10 +147,11 @@ public:
   }
 
   template <class F, class Comp, class K>
-  static std::optional<ET> find_compressed(node* b, const F& f, const Comp& comp, const K& k) {
+  static std::optional<std::reference_wrapper<const ET>>
+  find_compressed(node* b, const F& f, const Comp& comp, const K& k) {
     auto c = cast_to_compressed(b);
     uint8_t* data_start = (((uint8_t*)c) + 3*sizeof(node_size_t));
-    return EntryEncoder::find(data_start, c->s, f, comp, k);
+    return EntryEncoder::find_cref(data_start, c->s, f, comp, k);
   }
 
   // Used by GC to copy a compressed node. TODO: update to work correctly with
