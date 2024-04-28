@@ -20,7 +20,9 @@ public:
   using GC = typename Tree::GC;
   using Build = build<Entry>;
   using maybe_V = std::optional<V>;
+  using maybe_refV = std::optional<std::reference_wrapper<const V>>;
   using maybe_E = std::optional<E>;
+  using maybe_refE = std::optional<std::reference_wrapper<const E>>;
 
   // initializing, reserving and finishing
   static void init() { GC::init(); }
@@ -451,7 +453,11 @@ public:
   }
 
   // basic search routines
+  /*
   maybe_V find(const K& key) const {
+    return node_to_val(Tree::find(root, key));}
+  */
+  maybe_refV find(const K& key) const {
     return node_to_val(Tree::find(root, key));}
 
   // returns default value if not found
@@ -588,9 +594,9 @@ public:
   // construct from a node (perhaps should be private)
   map_(node* n) : root(n) { GC::init(); }
 
-  maybe_V node_to_val(node* a) const {
-    if (a != NULL) return maybe_V(Entry::get_val(Tree::get_entry(a)));
-    else return maybe_V();
+  maybe_refV node_to_val(node* a) const {
+    if (a != NULL) return maybe_refV(Entry::get_val(Tree::get_entry(a)));
+    else return maybe_refV();
   }
 
   maybe_E node_to_entry(node* a) const {
@@ -621,7 +627,8 @@ struct map_full_entry : entry {
   using key_t = typename entry::key_t;
   using entry_t = std::pair<key_t,val_t>;
   static inline key_t get_key(const entry_t& e) {return e.first;}
-  static inline val_t get_val(const entry_t& e) {return e.second;}
+  // static inline val_t get_val(const entry_t& e) {return e.second;}
+  static inline const val_t& get_val(const entry_t& e) {return e.second;}
   static inline void set_val(entry_t& e, const val_t& v) {e.second = v;}
 };
 
