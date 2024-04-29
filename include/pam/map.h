@@ -148,6 +148,12 @@ public:
     Tree::foreach_index(m.root, start, f, granularity, true);
   }
 
+  template <class F>
+  static void foreach_raw(const M& m, const F& f, size_t start=0,
+          size_t granularity = utils::node_limit) {
+    Tree::foreach_raw(m.root, start, f, granularity, true);
+  }
+
   // apply function f on all entries  (experimental, to match cpam
   // api)
   template <class F>
@@ -630,6 +636,7 @@ struct map_full_entry : entry {
   // static inline val_t get_val(const entry_t& e) {return e.second;}
   static inline const val_t& get_val(const entry_t& e) {return e.second;}
   static inline void set_val(entry_t& e, const val_t& v) {e.second = v;}
+  static size_t hash(const entry_t &e){return e.first;}
 };
 
 template <class _Entry, class Balance=weight_balanced_tree>

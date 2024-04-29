@@ -161,6 +161,21 @@ struct sequence_ops : Tree {
     if (!extra_ptr) GC::decrement(a);
   }
 
+  template<typename F>
+  static void foreach_raw(node* a, size_t start, const F& f,
+          size_t granularity=utils::node_limit,
+          bool extra_ptr = false) {
+
+    if (!a) return;
+    bool copy = extra_ptr || (a->ref_cnt > 1);
+    size_t lsize = Tree::size(a->lc);
+    f(Tree::get_entry(a), a, a->ref_cnt);
+    utils::fork_no_result(lsize >= granularity,
+      [&] () {foreach_raw(a->lc, start, f, granularity, copy);},
+      [&] () {foreach_raw(a->rc, start + lsize + 1,f, granularity, copy);});
+    if (!extra_ptr) GC::decrement(a);
+  }
+
   // similar to above but sequential using in-order traversal
   // usefull if using 20th century constructs such as iterators
   template<typename F>

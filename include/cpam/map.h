@@ -149,6 +149,12 @@ public:
   }
 
   template <class F>
+  static void foreach_raw(const M& m, const F& f, size_t start=0,
+          size_t granularity = kNodeLimit) {
+    Tree::foreach_raw(ptr(m.root, true), start, f, granularity);
+  }
+
+  template <class F>
   static void foreach_index_2(const M& m, const F& f) {
     Tree::foreach_index_2(m.root, f);
   }

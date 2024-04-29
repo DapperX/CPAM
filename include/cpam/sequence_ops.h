@@ -565,6 +565,38 @@ struct sequence_ops : Tree {
     GC::decrement(root);
   }
 
+  template <typename F>
+  static void foreach_raw(ptr a, size_t start, const F& f,
+                            size_t granularity = kNodeLimit) {
+    if (a.empty()) return;
+    const auto r = Tree::ref_cnt(ptr::strip_flag(a.p));
+    if (a.is_compressed()) {
+      auto c = a.unsafe_ptr();  // Why unsafe ptr here?? node_ptr() causes ref_cnt bumps.
+      size_t i = 0;
+      auto fn = [&] (const ET &e) {
+        f(e, c, r);
+        i++;
+      };
+      Tree::iterate_seq(c, fn);
+      return;
+    }
+    auto c = a.unsafe_ptr();
+    auto[lc, e, rc, root] = expose(std::move(a));
+    size_t lsize = lc.size();
+    f(e, c, r);
+    /*
+    utils::fork_no_result(
+        lsize >= granularity,
+        [&]() { foreach_raw(std::move(lc), start, f, granularity); },
+        [&]() {
+          foreach_raw(std::move(rc), start + lsize + 1, f, granularity);
+        });
+    */
+    foreach_raw(std::move(lc), start, f, granularity);
+    foreach_raw(std::move(rc), start + lsize + 1, f, granularity);
+    GC::decrement(root);
+  }
+
   // Experimental version: remove later if unused
   template <typename F>
   static void foreach_index_2(node* a, const F& f,
